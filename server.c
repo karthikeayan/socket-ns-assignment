@@ -5,6 +5,8 @@
 #include <string.h>
 
 void doprocessing (int sock);
+void errorCheck(int n, char *message);
+char *getCommand(char *message);
 
 int main( int argc, char *argv[] )
 {
@@ -80,23 +82,47 @@ void doprocessing (int sock)
 {
    int n;
    char buffer[256];
+   char *command;
+   char *message;
    
    bzero(buffer,256);
    
    n = read(sock,buffer,255);
+   errorCheck(n, "receiving message");
+
+   command = getCommand(buffer);
+
+   if (strcmp(buffer, "LOGIN") == 0) {
+     printf("Command from client: %s\n", command);
+     n = write(sock, "NEEDAUTH aa1123", 15);
+     
+   }
+   else if(strcmp(buffer, "AUTH") == 0){
+     
+   }
+   else{
+     printf("invalid message from client");
+   }
    
+//   n = write(sock,"I got your message",18);
+}
+
+char *getCommand(char *message){
+  char *command;
+  char *search = " ";
+  command = strtok(message, search);
+  printf("first substring: %s\n", command);
+  return command;
+}
+
+void errorCheck(int n, char *message){
    if (n < 0)
-      {
-      perror("ERROR reading from socket");
+   {
+      printf("ERROR in %s \n", message);
       exit(1);
-      }
-   
-   printf("Here is the message: %s\n",buffer);
-   n = write(sock,"I got your message",18);
-   
-   if (n < 0)
-      {
-      perror("ERROR writing to socket");
-      exit(1);
-      }
+   }
+   else
+   {
+      printf("%s message transfer successful\n", message);
+   }
 }

@@ -5,6 +5,9 @@
 #include <string.h>
 
 void errorCheck(int n, char *message);
+char *get_hash(char *string);
+char *get_string1(char *hashstring);
+char *get_string2(char *hashstring);
 
 int main(int argc, char *argv[])
 {
@@ -12,6 +15,10 @@ int main(int argc, char *argv[])
    char downloadDir[256];
    char username[25];
    char currentMessage[10];
+   char *command;
+   char *message;
+   char *hash;
+   char *backup;
 
    struct sockaddr_in serv_addr;
    struct hostent *server;
@@ -67,7 +74,22 @@ int main(int argc, char *argv[])
    /* Now read server response */
    bzero(buffer,256);
    n = read(sockfd, buffer, 255);
-   
+   printf("Message from Server: %s\n", buffer);
+
+   strcpy(backup, buffer);
+
+   command = get_string1(buffer);
+   printf("String1: %s\n", command);
+
+   if (strcmp(command, "NEEDAUTH") == 0) {
+     printf("inside if, buffer is: %s\n", backup);
+     message = get_string2(backup);
+     printf("password is: %s\n", message);
+     strcpy(backup, message);
+     hash = get_hash(message);
+     printf("converted hash: %s, for password: %s\n", hash, backup);
+   }
+
    if (n < 0)
    {
       perror("ERROR reading from socket");
@@ -87,4 +109,38 @@ void errorCheck(int n, char *message){
    {
       printf("%s message transfer successful\n", message);
    }
+}
+
+char *get_hash(char *string){
+  char command[50];
+  char *s;
+  FILE *fp;
+
+  strcpy(command, "echo -n ");
+  strcat(command, string);
+  strcat(command, " | md5sum");
+  printf("command to execute: %s\n", command);
+  fp = popen(command, "r");
+  printf("after popen\n");
+  while(fgets(s, sizeof(s), fp) != 0)
+  {
+    strcat(string, s);
+  }
+  pclose(fp);
+  return string;
+}
+
+char *get_string1(char *string){
+  char *substring;
+  char *search = " ";
+  substring = strtok(string, search);
+  return substring;
+}
+
+char *get_string2(char *string){
+  char *substring;
+  char *search = " ";
+  substring = strtok(string, search);
+  substring = strtok(NULL, search);
+  return substring;
 }
