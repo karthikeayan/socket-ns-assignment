@@ -33,6 +33,7 @@ int main(int argc, char *argv[])
    portno = atoi(argv[2]);
 
    /* Create a socket point */
+   printf("--> Creating socket file descriptor\n");
    sockfd = socket(AF_INET, SOCK_STREAM, 0);
 
    if (sockfd < 0)
@@ -61,40 +62,36 @@ int main(int argc, char *argv[])
 
    /* Now LOGIN <username> to server
    */
-   bzero(buffer,256);
-   strcpy(username, "dhoni");
+   bzero(buffer, 256);
+   strcpy(username, "raja");
    strcpy(buffer, "LOGIN ");
    strcpy(currentMessage, buffer);
    strcat(buffer, username);
 
    /* Send message to the server */
-   n = write(sockfd, buffer, strlen(buffer));
-   printf(" LOGIN Status: %d \n", n);
-   errorCheck(n, currentMessage);
+   n = write(sockfd, buffer, strlen(buffer) * sizeof(char));
+   errorCheck(n, "Sending LOGIN to server");
+   printf("--> Message sent to server: %s\n", buffer);
 
    /* Now read server response */
-   bzero(buffer,256);
+   bzero(buffer, 256);
    n = read(sockfd, buffer, 255);
-   errorCheck(n, buffer);
-   printf("Message from Server: %s\n", buffer);
-   strcpy(backup, buffer);
+   errorCheck(n, "Reading server response for LOGIN");
+   printf("--> Message received from server: %s\n", buffer);
 
-   printf("Backup Buffer: %s\n", backup);
+   strcpy(backup, buffer);
    command = get_string1(buffer);
-   printf("String1: %s\n", command);
 
    if (strcmp(command, "NEEDAUTH") != 0) {
      printf("Invalid message from server, expecting NEEDAUTH\n");
      exit(1);
    }
 
-   printf("inside if, buffer is: %s\n", backup);
    message = get_string2(backup);
-   printf("String2: %s\n", message);
    strcpy(backup, message);
    hash = get_hash(message);
    hash = get_string1(hash);
-   printf("converted hash: %s, for password: %s\n", hash, backup);
+   printf("--> Hashed password: %s, Plain password: %s\n", hash, backup);
 
    /* Writing back to server */
    bzero(buffer, 256);
@@ -102,19 +99,25 @@ int main(int argc, char *argv[])
    strcat(hash, backup);
    strcat(buffer, hash);
    n = write(sockfd, buffer, strlen(buffer));
+   errorCheck(n, "Writing hashed password to server");
+   printf("--> Message sent to server: %s\n", buffer);
 
    /* Get confirmation from server */
    bzero(buffer, 256);
    n = read(sockfd, buffer, 32);
-   printf("Login confirmation from server: %s\n", buffer);
+   errorCheck(n, "Reading confirmation from server");
+   printf("--> Message received from server: %s\n", buffer);
 
    /* Request file to server */
-   n = write(sockfd, "GETFILE detail.txt", 32);
+   n = write(sockfd, "GETFILE details.txt", 32);
+   errorCheck(n, "Requesting file from server");
+   printf("--> Message sent server: %s\n", buffer);
 
    /* Receive file from server */
    bzero(buffer, 256);
    n = read(sockfd, buffer, sizeof(buffer));
-   printf("file content received form server: %s\n", buffer);
+   errorCheck(n, "Reading file contents from server");
+   printf("--> Message received from server: %s\n", buffer);
 
    /* checking if the file present in server using server response*/
    bzero(message, 32);
@@ -130,10 +133,10 @@ int main(int argc, char *argv[])
    strcpy(filepath, argv[3]);
    strcat(filepath, "/");
    strcat(filepath, "details.txt");
-   FILE *fp = fopen(filepath, "ab");
-   printf("Writing the received data into file...\n");
+   FILE *fp = fopen(filepath, "w");
+   printf("--> Writing the received data into file, if any file with name, it will be replaced...\n");
    fwrite(backup, sizeof(char), strlen(backup), fp);
-   printf("Write done into %s file\n", filepath);
+   printf("--> Write done into %s file\n", filepath);
    fclose(fp);
 
    return 0;
@@ -145,10 +148,6 @@ void errorCheck(int n, char *message){
       printf("ERROR in %s \n", message);
       exit(1);
    }
-   else
-   {
-      printf("%s message transfer successful\n", message);
-   }
 }
 
 char *get_hash(char *string){
@@ -159,16 +158,13 @@ char *get_hash(char *string){
   strcpy(command, "echo -n ");
   strcat(command, string);
   strcat(command, " | md5sum");
-  printf("command to execute: %s\n", command);
   fp = popen(command, "r");
-  printf("after popen\n");
   bzero(string, 32);
   while(fgets(s, sizeof(s), fp) != 0)
   {
     strcat(string, s);
   }
   pclose(fp);
-  printf("hash value: %s", string);
   return string;
 }
 
