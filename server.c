@@ -6,13 +6,14 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
-void doprocessing (int sock);
+void doprocessing (int sock, char *filepath);
 void errorCheck(int n, char *message);
 char *getCommand(char *message);
 char *get_string1(char *string);
 char *get_string2(char *string);
 char *find_password(char *username);
-char *get_hash(char *string);
+char *get_hash_server(char *string);
+char *get_hash_server_tmp(char *string);
 
 int main( int argc, char *argv[] )
 {
@@ -21,6 +22,10 @@ int main( int argc, char *argv[] )
    struct sockaddr_in serv_addr, cli_addr;
    int  n, pid;
 
+   if (argc <4) {
+     fprintf(stderr, "usage %s bind_ip port work_directory\n", argv[0]);
+     exit(0);
+   }
    /* First call to socket() function */
    printf("--> Creating socket file descriptor \n");
    sockfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -33,10 +38,11 @@ int main( int argc, char *argv[] )
 
    /* Initialize socket structure */
    bzero((char *) &serv_addr, sizeof(serv_addr));
-   portno = 5001;
+   portno = atoi(argv[2]);
 
    serv_addr.sin_family = AF_INET;
-   serv_addr.sin_addr.s_addr = INADDR_ANY;
+   //serv_addr.sin_addr.s_addr = INADDR_ANY;
+   serv_addr.sin_addr.s_addr = inet_addr(argv[1]);
    serv_addr.sin_port = htons(portno);
 
    /* Now bind the host address using bind() call.*/
@@ -58,7 +64,6 @@ int main( int argc, char *argv[] )
 
    while (1)
    {
-      printf("--> Waiting for connection from client\n");
       newsockfd = accept(sockfd, (struct sockaddr *) &cli_addr, &clilen);
       if (newsockfd < 0)
          {
@@ -78,7 +83,8 @@ int main( int argc, char *argv[] )
          {
          /* This is the client process */
          close(sockfd);
-         doprocessing(newsockfd);
+         printf("--> Someone is connecting, let me start...\n");
+         doprocessing(newsockfd, argv[3]);
          exit(0);
          }
       else
@@ -88,7 +94,7 @@ int main( int argc, char *argv[] )
    } /* end of while */
 }
 
-void doprocessing (int sock)
+void doprocessing (int sock, char *filepath)
 {
    int n;
    char buffer[256];
@@ -100,6 +106,9 @@ void doprocessing (int sock)
    char file_size[20];
    char *password = (char *) malloc(48);
    char *hash = (char *) malloc(256);
+   char *hash_password = (char *) malloc(256);
+   char *tmp = (char *) malloc(256);
+   char *username = (char *) malloc(256);
 
    bzero(buffer,256);
 
@@ -116,29 +125,24 @@ void doprocessing (int sock)
    }
 
    message = get_string2(backup);
-/*   
-   printf("DEBUG: message: %s\n", message);
+   strcpy(username, message);
    password = find_password(message);
-   printf("DEBUG: password: %s\n", password);
 
-   hash = get_hash(password);
-   printf("DEBUG: hash: %s\n", hash);
-
-   hash = get_string1(hash);
-   printf("DEBUG: hash: %s\n", hash);
-   strcat(hash, password);
+   hash = get_hash_server(password);
+   hash_password = get_string1(hash);
+   strcat(hash_password, password);
 
    bzero(buffer, 256);
    strcpy(buffer, "NEEDAUTH ");
    strcat(buffer, password);
-*/
-   n = write(sock, "NEEDAUTH aa1123", 15);
+
+   n = write(sock, buffer, 20);
    errorCheck(n, "Writing NEEDAUTH to client\n");
-   printf("--> Message sent to client: %s\n", buffer);
+   printf("--> Message sent to client: NEEDAUTH <password>\n");
 
    bzero(buffer, 256);
    n = read(sock, buffer, 48);
-   errorCheck(n, "Reading hashed password to client\n");
+   errorCheck(n, "Reading hashed password from client\n");
    printf("--> Message received from client: %s\n", buffer);
 
    strcpy(backup, buffer);
@@ -177,13 +181,18 @@ void doprocessing (int sock)
    }
 
    message = get_string2(backup);
+   strcpy(tmp, filepath);
+   strcat(tmp, "/");
+   strcat(tmp, message);
+   strcpy(message, tmp);
+
    printf("--> File name requested from client: %s\n", message);
    if( access( message, F_OK ) != -1 ) {
      // file exists
      printf("--> Requested file exists :), processing it...\n");
    } else {
      // file doesn't exist
-     printf("ERROR: Requested file doesn't exist :( \n");
+     printf("ERROR: Requested file doesn't exist :(, closing connection with %s \n", username);
      n = write(sock, "ERROR No such file", 18);
      shutdown(sock, 2);
      exit(1);
@@ -264,25 +273,22 @@ char *find_password(char *username)
      strcat(output, s);
    }
    pclose(fp);
-   printf("--> User password: %s\n", output);
    return output;
 }
 
-char *get_hash(char *string){
-  char command[256];
-  char s[256];
-  FILE *fp;
+char *get_hash_server(char *string) {
+  char *command_to_execute = (char *) malloc(256);
+  char *s = (char *) malloc(10);
+  char *output = (char *) malloc(64);
 
-  strcpy(command, "echo -n ");
-  strcat(command, string);
-  strcat(command, " | md5sum");
-  fp = popen(command, "r");
-  printf("--> Command is : %s\n", command);
-  while(fgets(s, sizeof(s), fp) != 0)
-  {
-    strcat(string, s);
-  }
+  bzero(command_to_execute, 256);
+  strcpy(command_to_execute, "echo -n ");
+  strcat(command_to_execute, string);
+  strcat(command_to_execute, " | md5sum");
+  FILE *fp;
+  fp = popen(command_to_execute, "r");
+  printf("--> Command executed: %s\n", command_to_execute);
+  fgets(output, 256, fp);
   pclose(fp);
-  printf("--> converted hash: %s\n", string);
-  return string;
+  return output;
 }

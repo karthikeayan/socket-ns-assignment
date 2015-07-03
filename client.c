@@ -63,7 +63,7 @@ int main(int argc, char *argv[])
    /* Now LOGIN <username> to server
    */
    bzero(buffer, 256);
-   strcpy(username, "raja");
+   strcpy(username, "dhoni");
    strcpy(buffer, "LOGIN ");
    strcpy(currentMessage, buffer);
    strcat(buffer, username);
