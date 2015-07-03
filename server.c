@@ -11,7 +11,7 @@ void errorCheck(int n, char *message);
 char *getCommand(char *message);
 char *get_string1(char *string);
 char *get_string2(char *string);
-char *find_password(char *username);
+char *find_password(char *username, char *filepath);
 char *get_hash_server(char *string);
 char *get_hash_server_tmp(char *string);
 
@@ -126,7 +126,7 @@ void doprocessing (int sock, char *filepath)
 
    message = get_string2(backup);
    strcpy(username, message);
-   password = find_password(message);
+   password = find_password(message, filepath);
 
    hash = get_hash_server(password);
    hash_password = get_string1(hash);
@@ -255,16 +255,22 @@ char *get_string2(char *string){
   return substring;
 }
 
-char *find_password(char *username)
+char *find_password(char *username, char *filepath)
 {
    char command[50];
    FILE *fp;
    char *s = (char *) malloc(20);
    char *output = (char *) malloc(20);
+   char *password_file = (char *) malloc(256);
+
+   strcat(password_file, filepath);
+   strcat(password_file, "/");
+   strcat(password_file, "password.db");
 
    strcpy(command, "awk '/");
    strcat(command, username);
-   strcat(command, "/ {printf $2}' password.db");
+   strcat(command, "/ {printf $2}' ");
+   strcat(command, password_file);
    printf("--> Command is : %s\n", command);
 
    fp = popen(command, "r");
